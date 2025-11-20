@@ -49,7 +49,8 @@
 		"redux": "^5.0.0",
 		"redux-saga": "^1.4.2",
 		"regenerator-runtime": "^0.14.1",
-		"swiper": "12.0.3"
+		"swiper": "12.0.3", 
+		"@10up/block-components": "^1.17.6"
 	},
 	"devDependencies": {
 		"@types/lodash": "^4.17.20",

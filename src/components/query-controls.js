@@ -16,7 +16,7 @@ import {
 import apiFetch from '@wordpress/api-fetch';
 import { addQueryArgs } from '@wordpress/url';
 import { decodeEntities } from '@wordpress/html-entities';
-
+import { ContentPicker } from '@10up/block-components';
 /**
  * Internal dependencies.
  */
@@ -237,6 +237,70 @@ class QueryControls extends Component {
 		} );
 	};
 
+	/**
+	 * Generate a stable UUID for a post ID.
+	 *
+	 * @param {number} postId The post ID.
+	 * @returns {string} A stable UUID for the post.
+	 */
+	generateStableUUID = (postId) => {
+		return `post-${postId}-${postId.toString(36)}`;
+	};
+
+	/**
+	 * Transform specificPosts from various formats to ContentPicker format.
+	 *
+	 * @param {Array} posts Array of post IDs (integers) or objects with id/value and title/label.
+	 * @returns {Array} Array of objects with id, type, and uuid properties.
+	 */
+	transformSpecificPostsForPicker = (posts) => {
+		if (!Array.isArray(posts) || posts.length === 0) {
+			return [];
+		}
+
+		// Extract post IDs from various formats
+		const postIDs = posts.map((post) => {
+			if (typeof post === 'number') {
+				return post;
+			}
+			if (typeof post === 'object' && post !== null) {
+				return post.id || post.value;
+			}
+			return null;
+		}).filter(id => id !== null && !isNaN(id)).map(id => parseInt(id));
+
+		// Convert to ContentPicker format
+		return postIDs.map((postId) => ({
+			id: postId,
+			type: 'post',
+			uuid: this.generateStableUUID(postId),
+		}));
+	};
+
+	/**
+	 * Transform ContentPicker selection back to array of post IDs.
+	 *
+	 * @param {Array} selectedItems Array of objects from ContentPicker.
+	 * @returns {Array} Array of post IDs (integers).
+	 */
+	transformPickerSelectionToPosts = (selectedItems) => {
+		if (!Array.isArray(selectedItems)) {
+			return [];
+		}
+
+		return selectedItems.map((item) => {
+			// Handle different possible structures
+			if (typeof item === 'number') {
+				return item;
+			}
+			if (typeof item === 'object' && item !== null) {
+				// Try different possible ID properties
+				return item.id || item.value || item.post_id;
+			}
+			return null;
+		}).filter((id) => id !== null && !isNaN(id)).map(id => parseInt(id));
+	};
+
 	render = () => {
 		const {
 			specificMode,
@@ -304,14 +368,22 @@ class QueryControls extends Component {
 					</ToggleGroupControl>
 				) }
 				{ specificMode ? (
-					<AutocompleteTokenField
-						tokens={ specificPosts || [] }
-						onChange={ onSpecificPostsChange }
-						fetchSuggestions={ this.fetchPostSuggestions }
-						fetchSavedInfo={ this.fetchSavedPosts }
-						label={ __( 'Content', 'newspack-blocks' ) }
-						help={ __( 'Begin typing any word in a title. Click on an autocomplete result to select it.', 'newspack-blocks' ) }
-					/>
+					<>
+						<ContentPicker
+							label={__('Select Content', 'mainetoday')}
+							hideLabelFromVision={false}
+							content={this.transformSpecificPostsForPicker(specificPosts)}
+							isOrderable={true}
+							onPickChange={(value) => {
+								onSpecificPostsChange(this.transformPickerSelectionToPosts(value));
+							}}
+							contentTypes={['post', 'page']}
+							maxContentItems={20}
+							queryFilter={(query, { keyword }) => {
+								return `/mtm/v1/newspack-content-picker?search=${encodeURIComponent(keyword)}`;
+							}}
+						/>
+					</>
 				) : (
 					<>
 						<BasicQueryControls { ...this.props } maxItems={ 30 } />
